@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌤️ モーニングボット Web版</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-content: center;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            max-width: 480px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            text-align: center;
+            color: #2c3e50;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #34495e;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        input:focus, select:focus {
+            border-color: #3498db;
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #06C755; /* LINEカラー */
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background-color: #05b34c;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            text-align: center;
+            display: none;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .loading { background-color: #e2e3e5; color: #383d41; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🌤️ モーニングボット</h1>
+    <p class="subtitle">トークンを入れてボタンを押すだけで、LINEに天気を送れます。</p>
+
+    <div class="form-group">
+        <label for="token">LINE アクセストークン</label>
+        <input type="text" id="token" placeholder="LINE Developersの長いトークン">
+    </div>
+
+    <div class="form-group">
+        <label for="groupId">LINE グループID / ユーザーID</label>
+        <input type="text" id="groupId" placeholder="C... や U... から始まるID">
+    </div>
+
+    <div class="form-group">
+        <label for="areaCode">地域を選択</label>
+        <select id="areaCode">
+            <option value="130010">東京 (東京都)</option>
+            <option value="016010">札幌 (北海道)</option>
+            <option value="040010">仙台 (宮城県)</option>
+            <option value="230010">名古屋 (愛知県)</option>
+            <option value="270000">大阪 (大阪府)</option>
+            <option value="340010">広島 (広島県)</option>
+            <option value="400010">福岡 (福岡県)</option>
+            <option value="430010">熊本 (熊本県)</option>
+            <option value="450010">宮崎 (宮崎県)</option>
+            <option value="460010">鹿児島 (鹿児島県)</option>
+        </select>
+    </div>
+
+    <button id="sendBtn" onclick="runMorningBot()">🌤️ 天気をLINEに送信する</button>
+
+    <div id="status"></div>
+</div>
+
+<script>
+async function runMorningBot() {
+    const token = document.getElementById('token').value.trim();
+    const groupId = document.getElementById('groupId').value.trim();
+    const areaCode = document.getElementById('areaCode').value;
+    const statusDiv = document.getElementById('status');
+    const sendBtn = document.getElementById('sendBtn');
+
+    if (!token || !groupId) {
+        showStatus('❌ トークンとグループIDを入力してください。', 'error');
+        return;
+    }
+
+    // 画面をローディング状態にする
+    sendBtn.disabled = true;
+    showStatus('⏳ 天気予報を取得中...', 'loading');
+
+    try {
+        // 1. お天気APIからデータを取得 (CORS回避のためプロキシ経由、または直接取得)
+        const weatherUrl = `https://weather.tsukumijima.net/api/forecast/city/${areaCode}`;
+        const weatherResponse = await fetch(weatherUrl);
+        if (!weatherResponse.ok) throw new Error('天気データの取得に失敗しました。');
+        
+        const weatherData = await weatherResponse.json();
+        const title = weatherData.title || 'お天気予報';
+        const forecasts = weatherData.forecasts || [];
+        
+        if (forecasts.length === 0) {
+            throw new Error('天気データが空でした。');
+        }
+
+        const today = forecasts[0];
+        const tempMaxData = today.temperature?.max || {};
+        const tempMax = tempMaxData.celsius ? `${tempMaxData.celsius}度` : '--度';
+
+        // メッセージの組み立て
+        const messageText = `【${title}】\n${today.dateLabel}の天気: ${today.telop}\n最高気温: ${tempMax}\n\n今日も一日頑張りましょう！\n※これだけを頼りにしないでね`;
+
+        showStatus('🚀 LINEへ送信中...', 'loading');
+
+        // 2. LINE Messaging APIへ送信
+        // ※ブラウザからの直接送信はLINE側でCORSブロックされる可能性があるため、GAS等を通さない場合はエラーになることがあります
+        const lineUrl = 'https://api.line.me/v2/bot/message/push';
+        const lineResponse = await fetch(lineUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                to: groupId,
+                messages: [{ type: 'text', text: messageText }]
+            })
+        });
+
+        if (lineResponse.status === 200) {
+            showStatus('🎉 LINEグループへの天気送信に成功しました！', 'success');
+        } else {
+            const errText = await lineResponse.text();
+            showStatus(`❌ LINE送信失敗 (コード: ${lineResponse.status})`, 'error');
+            console.error(errText);
+        }
+
+    } catch (error) {
+        showStatus(`❌ エラーが発生しました: ${error.message}`, 'error');
+    } finally {
+        sendBtn.disabled = false;
+    }
+}
+
+function showStatus(text, className) {
+    const statusDiv = document.getElementById('status');
+    statusDiv.style.display = 'block';
+    statusDiv.innerText = text;
+    statusDiv.className = className;
+}
+</script>
+
+</body>
+</html>
