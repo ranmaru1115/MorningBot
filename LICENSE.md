@@ -9,3 +9,11 @@ This project is licensed under the **Creative Commons Attribution-NonCommercial-
   You may not use the material for commercial purposes.
 * **継承 / ShareAlike (SA):** このコードを改造して新しい作品を作る場合、元のライセンスと同じ「CC BY-NC-SA 4.0」で配布する必要があります。
   If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
+Creative Commons Legal Code
+
+Attribution-NonCommercial-ShareAlike 4.0 International
+
+Copyright (c) 2026 Ranmaru Honda
+
+Official License Text:
+https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode
